@@ -39,6 +39,8 @@ export interface EngineSettings {
   deviceId: string | null;
   /** 0–100: quão fraco/impreciso pode ser o sinal para ser aceite. */
   sensitivity: number;
+  /** Tratar saltos bruscos de pitch (mudança de casa) como nova nota de origem. */
+  jumpDetection: boolean;
 }
 
 export function useAudioEngine(settings: EngineSettings) {
@@ -68,6 +70,9 @@ export function useAudioEngine(settings: EngineSettings) {
   useEffect(() => {
     trackerRef.current.setRoot(settings.lockedRootMidi);
   }, [settings.lockedRootMidi]);
+  useEffect(() => {
+    trackerRef.current.setJumpDetection(settings.jumpDetection);
+  }, [settings.jumpDetection]);
   useEffect(() => {
     const t = sensitivityToThresholds(settings.sensitivity);
     detectorRef.current?.setThresholds(t);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createBendTracker } from './bendTracker';
+import { createBendTracker, labelForCents } from './bendTracker';
 import { midiToFreq } from './notes';
 
 const G4 = 67; // G4 = 392 Hz
@@ -45,8 +45,9 @@ describe('bendTracker', () => {
   it('indica quanto passou quando o bend está alto', () => {
     const t = createBendTracker({ stableFrames: 3, smoothing: 1, toleranceCents: 10 });
     const root = midiToFreq(G4);
+    const mid = root * Math.pow(2, 160 / 1200);
     const high = root * Math.pow(2, 318 / 1200); // 18 cents acima de 1½ tom
-    const st = run(t, [root, root, root, high, high]);
+    const st = run(t, [root, root, root, mid, high, high]);
     expect(st.targetCents).toBe(300);
     expect(st.verdict).toBe('sharp');
     expect(Math.round(st.deviation)).toBe(18);
@@ -81,5 +82,70 @@ describe('bendTracker', () => {
     expect(st.rootName).toBe('G4');
     st = run(t, [lower, lower, lower], 1000);
     expect(st.rootName).toBe('D4');
+  });
+
+  it('alvos automáticos acima de 2 tons (semitom mais próximo até à oitava)', () => {
+    const t = createBendTracker({ stableFrames: 3, smoothing: 1, toleranceCents: 10 });
+    const root = midiToFreq(G4);
+    const glide = [200, 400, 600].map((c) => root * Math.pow(2, c / 1200));
+    const f = root * Math.pow(2, 712 / 1200); // 12 cents acima de 3½ tons
+    const st = run(t, [root, root, root, ...glide, f, f]);
+    expect(st.targetCents).toBe(700);
+    expect(st.targetLabel).toBe('3½ tons');
+    expect(st.targetName).toBe('D5');
+    expect(st.verdict).toBe('sharp');
+    expect(Math.round(st.deviation)).toBe(12);
+  });
+
+  it('labelForCents', () => {
+    expect(labelForCents(100)).toBe('½ tom');
+    expect(labelForCents(200)).toBe('1 tom');
+    expect(labelForCents(500)).toBe('2½ tons');
+    expect(labelForCents(600)).toBe('3 tons');
+    expect(labelForCents(1200)).toBe('6 tons (oitava)');
+  });
+
+  it('salto brusco confirmado (mudança de casa) fixa nova origem', () => {
+    const t = createBendTracker({ stableFrames: 3, smoothing: 1 });
+    const root = midiToFreq(G4);
+    const c5 = midiToFreq(G4 + 5); // salto de 500 cents
+    let st = run(t, [root, root, root]);
+    expect(st.rootName).toBe('G4');
+    st = run(t, [c5], 100); // 1.º frame: pendente, ainda G4
+    expect(st.rootName).toBe('G4');
+    st = run(t, [c5, c5], 200); // confirmado
+    expect(st.rootName).toBe('C5');
+    expect(st.verdict).toBe('rest');
+  });
+
+  it('glitch de oitava de um frame não altera a origem durante um bend', () => {
+    const t = createBendTracker({ stableFrames: 3, smoothing: 1, toleranceCents: 10 });
+    const root = midiToFreq(G4);
+    const bent = root * Math.pow(2, 150 / 1200);
+    let st = run(t, [root, root, root, bent, bent]);
+    expect(st.rootName).toBe('G4');
+    st = run(t, [bent * 2, bent, bent], 200);
+    expect(st.rootName).toBe('G4');
+    expect(st.targetCents).toBe(200);
+  });
+
+  it('bend rápido mas contínuo não é tratado como salto', () => {
+    const t = createBendTracker({ stableFrames: 3, smoothing: 1 });
+    const root = midiToFreq(G4);
+    const glide = [50, 120, 200, 280, 350, 400].map((c) => root * Math.pow(2, c / 1200));
+    const st = run(t, [root, root, root, ...glide]);
+    expect(st.rootName).toBe('G4');
+    expect(st.targetCents).toBe(400);
+    expect(st.verdict).toBe('in-tune');
+  });
+
+  it('detecção de saltos pode ser desligada', () => {
+    const t = createBendTracker({ stableFrames: 3, smoothing: 1, jumpDetection: false });
+    const root = midiToFreq(G4);
+    const c5 = midiToFreq(G4 + 5);
+    run(t, [root, root, root]);
+    const st = run(t, [c5, c5, c5], 100);
+    expect(st.rootName).toBe('G4');
+    expect(st.targetCents).toBe(500);
   });
 });

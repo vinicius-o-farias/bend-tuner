@@ -1,19 +1,21 @@
 import { useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
-import { BEND_TARGETS } from '../logic/bendTracker';
+import { BEND_TARGETS, MAX_TARGET_CENTS, shortLabelForCents } from '../logic/bendTracker';
 import type { HistoryPoint } from '../audio/useAudioEngine';
 
-const MAX_CENTS = 450;
 const WINDOW_MS = 4000;
 
 interface Props {
   history: MutableRefObject<HistoryPoint[]>;
   toleranceCents: number;
   running: boolean;
+  /** Topo do eixo vertical em cents. */
+  maxCents: number;
 }
 
 /** Gráfico dos últimos segundos: cents acima da raiz ao longo do tempo. */
-export function HistoryGraph({ history, toleranceCents, running }: Props) {
+export function HistoryGraph({ history, toleranceCents, running, maxCents }: Props) {
+  const MAX_CENTS = maxCents;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -38,20 +40,22 @@ export function HistoryGraph({ history, toleranceCents, running }: Props) {
       const now = performance.now();
       const x = (t: number) => w - ((now - t) / WINDOW_MS) * w;
 
-      // Linhas dos alvos + zonas de tolerância
-      for (const t of BEND_TARGETS) {
-        ctx.fillStyle = 'rgba(124, 242, 176, 0.10)';
-        ctx.fillRect(0, y(t.cents + toleranceCents), w, y(t.cents - toleranceCents) - y(t.cents + toleranceCents));
-        ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-        ctx.setLineDash([4, 6]);
+      // Linhas dos alvos + zonas de tolerância (principais até 2 tons, discretas acima)
+      ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
+      for (let c = 100; c <= Math.min(MAX_TARGET_CENTS, MAX_CENTS); c += 100) {
+        const major = c <= 400;
+        ctx.fillStyle = major ? 'rgba(124, 242, 176, 0.10)' : 'rgba(124, 242, 176, 0.06)';
+        ctx.fillRect(0, y(c + toleranceCents), w, y(c - toleranceCents) - y(c + toleranceCents));
+        ctx.strokeStyle = major ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)';
+        ctx.setLineDash(major ? [4, 6] : [2, 6]);
         ctx.beginPath();
-        ctx.moveTo(0, y(t.cents));
-        ctx.lineTo(w, y(t.cents));
+        ctx.moveTo(0, y(c));
+        ctx.lineTo(w, y(c));
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255,255,255,0.45)';
-        ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
-        ctx.fillText(t.label, 6, y(t.cents) - 4);
+        ctx.fillStyle = major ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.28)';
+        const label = major ? BEND_TARGETS.find((t) => t.cents === c)?.label ?? '' : shortLabelForCents(c);
+        ctx.fillText(label, 6, y(c) - 3);
       }
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.beginPath();
@@ -90,7 +94,7 @@ export function HistoryGraph({ history, toleranceCents, running }: Props) {
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [history, toleranceCents, running]);
+  }, [history, toleranceCents, running, maxCents]);
 
   return <canvas ref={canvasRef} className="history" aria-label="Histórico do bend" />;
 }

@@ -18,7 +18,17 @@ const DEFAULT_SETTINGS: EngineSettings = {
   lockedRootMidi: null,
   deviceId: null,
   sensitivity: DEFAULT_SENSITIVITY,
+  jumpDetection: true,
 };
+
+/** Alcance mínimo/máximo (cents) da régua e do gráfico. */
+const RANGE_MIN = 450;
+const RANGE_MAX = 1250;
+
+/** Alcance que acomoda o pico recente com folga, arredondado ao semitom + 50. */
+function rangeFor(peak: number): number {
+  return Math.min(RANGE_MAX, Math.max(RANGE_MIN, Math.ceil((peak + 50) / 100) * 100 + 50));
+}
 
 function loadSettings(): EngineSettings {
   try {
@@ -34,6 +44,15 @@ export default function App() {
   const [settings, setSettings] = useState<EngineSettings>(loadSettings);
   const { status, error, devices, state, history, start, stop, rmsThreshold } = useAudioEngine(settings);
   const running = status === 'running';
+  const [rangeMax, setRangeMax] = useState(RANGE_MIN);
+
+  // Alarga o alcance quando o bend (ou um salto) ultrapassa 2 tons; encolhe quando o histórico esvazia.
+  useEffect(() => {
+    let peak = state.currentFreq !== null && state.rootFreq !== null ? state.centsAboveRoot : 0;
+    for (const p of history.current) if (p.cents !== null && p.cents > peak) peak = p.cents;
+    const want = rangeFor(peak);
+    if (want !== rangeMax) setRangeMax(want);
+  }, [state, history, rangeMax]);
 
   useEffect(() => {
     try {
@@ -111,9 +130,9 @@ export default function App() {
           </div>
         </section>
 
-        <BendMeter state={state} toleranceCents={settings.toleranceCents} />
+        <BendMeter state={state} toleranceCents={settings.toleranceCents} maxCents={rangeMax} />
 
-        <HistoryGraph history={history} toleranceCents={settings.toleranceCents} running={running} />
+        <HistoryGraph history={history} toleranceCents={settings.toleranceCents} running={running} maxCents={rangeMax} />
 
         <Controls settings={settings} onChange={patch} devices={devices} running={running} />
       </main>

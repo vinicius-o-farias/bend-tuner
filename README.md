@@ -9,9 +9,12 @@ escreve `bend` no terminal e a app abre no browser.
 
 - Detecta a nota que tocas (nota de origem) e, à medida que fazes o bend, mede quantos **cents** subiste.
 - Escolhe automaticamente o alvo mais próximo — **½ tom (100¢), 1 tom (200¢), 1½ tom (300¢), 2 tons (400¢)** —
-  ou fixa um alvo manualmente (teclas `1`–`4`, `0` volta ao automático).
+  ou fixa um alvo manualmente (teclas `1`–`4`, `0` volta ao automático). Acima de 2 tons continua a avaliar
+  contra o semitom mais próximo até à oitava (2½, 3, 3½ tons…), com marcas discretas na régua e no gráfico.
 - Mostra se estás **afinado**, quanto **falta** para chegar à nota ou quanto **passaste**.
-- Régua 0–450¢ com marcadores nos alvos, agulha fina de ±50¢ em relação ao alvo e gráfico dos últimos 4 s.
+- Régua e gráfico dos últimos 4 s com alcance dinâmico: começam em 0–450¢ e alargam até 1250¢ quando o pitch
+  sobe mais (um bend largo ou uma mudança de casa), para se ver sempre se a nota está afinada.
+- Agulha fina de ±50¢ em relação ao alvo.
 
 ## Instalação / uso
 
@@ -45,6 +48,9 @@ npm test
 
 ## Dicas
 
+- **Mudança de casa**: um bend é um glissando contínuo; uma mudança de casa é um salto instantâneo. Por omissão,
+  um salto de mais de 3 semitons entre frames consecutivos (confirmado no frame seguinte, para ignorar erros de
+  oitava do detector) fixa a nova nota como origem. Se preferires o comportamento antigo, desliga em **Mudança de casa**.
 - Se a nota de origem for capturada mal (ex.: apanhou o ataque), usa o selector **Nota de origem** para fixá-la.
 - A **sensibilidade** (0–100) controla o quão fraco e impreciso pode ser o sinal para ser aceite. Se a app não reage
   à guitarra, sobe; se apanha ruído ou fixa notas a partir de barulho, baixa. A marca branca na barra de nível do

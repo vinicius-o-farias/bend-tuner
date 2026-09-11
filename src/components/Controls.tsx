@@ -109,6 +109,19 @@ export function Controls({ settings, onChange, devices, running }: Props) {
       </div>
 
       <div className="control">
+        <label>Mudança de casa</label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.jumpDetection}
+            onChange={(e) => onChange({ jumpDetection: e.target.checked })}
+          />
+          <span>Salto brusco de altura = nova nota de origem</span>
+        </label>
+        <div className="hint">Um bend é contínuo; um salto instantâneo (&gt;3 semitons num frame) não é bend.</div>
+      </div>
+
+      <div className="control">
         <label>
           Referência A4 <span className="mono">{settings.a4} Hz</span>
         </label>

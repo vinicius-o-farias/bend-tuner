@@ -10,6 +10,28 @@ export const BEND_TARGETS = [
 
 export type TargetMode = 'auto' | 100 | 200 | 300 | 400;
 
+/** Alvo máximo considerado em modo automático (uma oitava). */
+export const MAX_TARGET_CENTS = 1200;
+
+/** Etiqueta em tons para um alvo em cents (múltiplo de 100). */
+export function labelForCents(cents: number): string {
+  const fixed = BEND_TARGETS.find((t) => t.cents === cents);
+  if (fixed) return fixed.label;
+  const semis = Math.round(cents / 100);
+  const whole = Math.floor(semis / 2);
+  const half = semis % 2 === 1;
+  const num = half ? `${whole}½` : `${whole}`;
+  const unit = whole === 1 && !half ? 'tom' : whole >= 1 ? 'tons' : 'tom';
+  return semis === 12 ? '6 tons (oitava)' : `${num} ${unit}`;
+}
+
+/** Etiqueta curta (sem unidade) para marcas discretas. */
+export function shortLabelForCents(cents: number): string {
+  const semis = Math.round(cents / 100);
+  const whole = Math.floor(semis / 2);
+  return semis % 2 === 1 ? `${whole}½` : `${whole}`;
+}
+
 export type Verdict = 'silence' | 'waiting' | 'rest' | 'flat' | 'in-tune' | 'sharp';
 
 export interface BendState {
@@ -52,6 +74,10 @@ export interface BendTrackerOptions {
   /** Ganho de suavização exponencial do pitch (0..1, maior = mais reactivo). */
   smoothing?: number;
   targetMode?: TargetMode;
+  /** Salto de pitch entre frames consecutivos (cents) a partir do qual se assume nova nota, não bend. */
+  jumpResetCents?: number;
+  /** Activa a detecção de saltos bruscos (mudança de casa) como nova nota de origem. */
+  jumpDetection?: boolean;
 }
 
 export function createBendTracker(options: BendTrackerOptions = {}) {
@@ -64,8 +90,16 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
   const belowRootResetCents = options.belowRootResetCents ?? 60;
   const smoothing = options.smoothing ?? 0.5;
   let targetMode: TargetMode = options.targetMode ?? 'auto';
+  const jumpResetCents = options.jumpResetCents ?? 300;
+  let jumpDetection = options.jumpDetection ?? true;
 
   let rootMidi: number | null = null;
+  let prevRawFreq: number | null = null;
+  let prevRawTime = 0;
+  /** Última altura confirmada por dois frames concordantes: referência de "antes do salto". */
+  let settledFreq: number | null = null;
+  let prevFrameWasNull = true;
+  let pendingJump: { freq: number; pre: number } | null = null;
   let smoothedFreq: number | null = null;
   let stableCount = 0;
   let lastCandidateMidi: number | null = null;
@@ -95,26 +129,55 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
   function chooseTarget(cents: number): number | null {
     if (targetMode !== 'auto') return targetMode;
     if (cents < bendStartCents) return null;
-    let best: number = BEND_TARGETS[0].cents;
-    let bestDist = Infinity;
-    for (const t of BEND_TARGETS) {
-      const d = Math.abs(t.cents - cents);
-      if (d < bestDist) {
-        bestDist = d;
-        best = t.cents;
+    // semitom mais próximo, entre ½ tom e uma oitava
+    const semis = Math.round(cents / 100);
+    return Math.min(MAX_TARGET_CENTS, Math.max(100, semis * 100));
+  }
+
+  /**
+   * Um bend é um glissando contínuo; uma mudança de casa é um salto instantâneo.
+   * Confirma o salto no frame seguinte (rejeita erros de oitava de um só frame) e,
+   * se a nova altura se mantiver longe da anterior, fixa-a como nova origem.
+   */
+  function handleJump(freq: number, now: number): boolean {
+    if (!jumpDetection || lockedRoot || rootMidi === null || prevRawFreq === null) return false;
+    // Frames consecutivos com som: limiar proporcional ao intervalo real (referência 16 ms, até 4×),
+    // para que quedas de frames do browser não transformem um bend rápido em salto.
+    // Após um hiato sem pitch (nota abafada entre casas) o salto conta por inteiro.
+    const scale = prevFrameWasNull ? 1 : Math.min(4, Math.max(1, (now - prevRawTime) / 16));
+    const limit = jumpResetCents * scale;
+    const ref = settledFreq ?? prevRawFreq;
+    const far = (a: number, b: number) => Math.abs(centsBetween(a, b)) > limit;
+    const near = (a: number, b: number) => Math.abs(centsBetween(a, b)) < stableCents;
+    if (pendingJump) {
+      if (near(freq, pendingJump.freq)) {
+        const confirmed = far(freq, pendingJump.pre);
+        pendingJump = null;
+        return confirmed;
       }
+      if (near(freq, pendingJump.pre)) {
+        pendingJump = null; // glitch: voltou à altura anterior
+        return false;
+      }
+      pendingJump = { freq, pre: pendingJump.pre };
+      return false;
     }
-    return best;
+    if (far(freq, prevRawFreq)) pendingJump = { freq, pre: ref };
+    return false;
   }
 
   function update(freq: number | null, clarity: number, rms: number, now: number): BendState {
     if (freq === null) {
+      prevFrameWasNull = true;
       if (now - lastSignalTime > silenceResetMs) {
         if (!lockedRoot) rootMidi = null;
         smoothedFreq = null;
         stableCount = 0;
         lastCandidateMidi = null;
         peakCents = 0;
+        prevRawFreq = null;
+        settledFreq = null;
+        pendingJump = null;
         return emptyState('silence', clarity, rms);
       }
       // curto hiato — manter estado mas sem leitura
@@ -122,6 +185,18 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
     }
 
     lastSignalTime = now;
+
+    if (handleJump(freq, now)) {
+      // nova nota tocada (mudança de casa): fixar já como origem
+      rootMidi = Math.round(freqToMidi(freq, a4));
+      smoothedFreq = freq;
+      peakCents = 0;
+      stableCount = stableFrames;
+    }
+    if (prevRawFreq !== null && Math.abs(centsBetween(freq, prevRawFreq)) < stableCents) settledFreq = freq;
+    prevRawFreq = freq;
+    prevRawTime = now;
+    prevFrameWasNull = false;
 
     // Suavização exponencial; rejeita saltos de oitava do detector
     if (smoothedFreq === null) {
@@ -193,7 +268,7 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
     if (targetCents === null || centsAboveRoot < bendStartCents) {
       state.verdict = 'rest';
       if (targetCents !== null) {
-        state.targetLabel = BEND_TARGETS.find((t) => t.cents === targetCents)?.label ?? null;
+        state.targetLabel = labelForCents(targetCents);
         state.targetName = midiToName(rootMidi + targetCents / 100);
         state.deviation = centsAboveRoot - targetCents;
       }
@@ -202,7 +277,7 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
 
     const deviation = centsAboveRoot - targetCents;
     state.deviation = deviation;
-    state.targetLabel = BEND_TARGETS.find((t) => t.cents === targetCents)?.label ?? null;
+    state.targetLabel = labelForCents(targetCents);
     state.targetName = midiToName(rootMidi + targetCents / 100);
     state.verdict = Math.abs(deviation) <= tolerance ? 'in-tune' : deviation < 0 ? 'flat' : 'sharp';
     return state;
@@ -219,6 +294,10 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
     setA4(v: number) {
       a4 = v;
     },
+    setJumpDetection(on: boolean) {
+      jumpDetection = on;
+      pendingJump = null;
+    },
     /** Fixa manualmente a nota de origem (MIDI). Passar null para voltar ao automático. */
     setRoot(midi: number | null) {
       if (midi === null) {
@@ -234,6 +313,10 @@ export function createBendTracker(options: BendTrackerOptions = {}) {
     isRootLocked: () => lockedRoot,
     reset() {
       if (!lockedRoot) rootMidi = null;
+      prevRawFreq = null;
+      settledFreq = null;
+      prevFrameWasNull = true;
+      pendingJump = null;
       smoothedFreq = null;
       stableCount = 0;
       lastCandidateMidi = null;
