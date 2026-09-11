@@ -3,6 +3,8 @@
 Monitor em tempo real da afinação de **bends** de guitarra. Liga a guitarra à interface de áudio,
 escreve `bend` no terminal e a app abre no browser.
 
+**Online:** https://vinicius-o-farias.github.io/bend-tuner/ (deploy automático a cada push para `main`).
+
 ## O que faz
 
 - Detecta a nota que tocas (nota de origem) e, à medida que fazes o bend, mede quantos **cents** subiste.
