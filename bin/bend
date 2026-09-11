@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# bend — arranca o Bend Tuner e abre-o no browser.
+#
+#   bend            inicia o servidor (se ainda não estiver a correr) e abre o browser
+#   bend stop       pára o servidor em segundo plano
+#   bend status     mostra se está a correr
+#   bend build      gera a versão de produção em dist/
+#   bend --help     esta ajuda
+set -euo pipefail
+
+# Resolver o directório real do projecto, mesmo quando invocado via symlink
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+PROJECT_DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+PORT="${BEND_PORT:-4321}"
+URL="http://localhost:${PORT}"
+PID_FILE="$PROJECT_DIR/.bend-server.pid"
+LOG_FILE="$PROJECT_DIR/.bend-server.log"
+
+ensure_node() {
+  if ! command -v npm >/dev/null 2>&1; then
+    # tentar carregar o nvm em shells não interactivas
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    # shellcheck disable=SC1091
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 || true
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "✖ npm não encontrado. Instala o Node.js (https://nodejs.org) e tenta novamente." >&2
+    exit 1
+  fi
+}
+
+ensure_deps() {
+  if [ ! -d "$PROJECT_DIR/node_modules" ]; then
+    echo "→ Primeira execução: a instalar dependências…"
+    (cd "$PROJECT_DIR" && npm install --no-fund --no-audit)
+  fi
+}
+
+port_in_use() {
+  lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+open_browser() {
+  if command -v open >/dev/null 2>&1; then open "$URL"
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$URL"
+  else echo "Abre no browser: $URL"; fi
+}
+
+server_running() {
+  [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+cmd_start() {
+  ensure_node
+  ensure_deps
+  if server_running || port_in_use; then
+    echo "✓ Bend Tuner já está a correr em $URL"
+    open_browser
+    return
+  fi
+  echo "→ A iniciar Bend Tuner em $URL …"
+  (cd "$PROJECT_DIR" && nohup npm run dev -- --port "$PORT" --strictPort >"$LOG_FILE" 2>&1 & echo $! >"$PID_FILE")
+  # esperar até o servidor responder (máx. ~15 s)
+  for _ in $(seq 1 60); do
+    if port_in_use; then
+      echo "✓ Pronto. A abrir o browser… (para parar: bend stop)"
+      open_browser
+      return
+    fi
+    sleep 0.25
+  done
+  echo "✖ O servidor não arrancou a tempo. Ver log: $LOG_FILE" >&2
+  exit 1
+}
+
+cmd_stop() {
+  if server_running; then
+    PID="$(cat "$PID_FILE")"
+    # matar o grupo de processos (npm → vite)
+    pkill -P "$PID" 2>/dev/null || true
+    kill "$PID" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "✓ Bend Tuner parado."
+  elif port_in_use; then
+    lsof -nP -tiTCP:"$PORT" -sTCP:LISTEN | xargs kill 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "✓ Processo na porta $PORT terminado."
+  else
+    echo "Bend Tuner não está a correr."
+  fi
+}
+
+cmd_status() {
+  if server_running || port_in_use; then
+    echo "✓ A correr em $URL"
+  else
+    echo "✗ Parado"
+  fi
+}
+
+cmd_build() {
+  ensure_node
+  ensure_deps
+  (cd "$PROJECT_DIR" && npm run build)
+}
+
+case "${1:-start}" in
+  start|"") cmd_start ;;
+  stop) cmd_stop ;;
+  restart) cmd_stop; cmd_start ;;
+  status) cmd_status ;;
+  build) cmd_build ;;
+  -h|--help|help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "Comando desconhecido: $1 (usa: bend --help)" >&2; exit 2 ;;
+esac

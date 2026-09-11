@@ -1,0 +1,138 @@
+:root {
+  --bg: #0e1015;
+  --panel: #161a22;
+  --panel-2: #1d222c;
+  --text: #e8ecf3;
+  --dim: #8b94a7;
+  --line: #2a3040;
+  --ok: #7cf2b0;
+  --flat: #ffd166;
+  --sharp: #ff6b6b;
+  --accent: #7aa2ff;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+button, select, input { font: inherit; color: inherit; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dim { color: var(--dim); }
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 20px 24px;
+  transition: background 200ms;
+}
+.app.in-tune { background: radial-gradient(1200px 500px at 50% -10%, rgba(124, 242, 176, 0.10), transparent 70%) var(--bg); }
+.app.flat    { background: radial-gradient(1200px 500px at 50% -10%, rgba(255, 209, 102, 0.08), transparent 70%) var(--bg); }
+.app.sharp   { background: radial-gradient(1200px 500px at 50% -10%, rgba(255, 107, 107, 0.10), transparent 70%) var(--bg); }
+
+header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #111318; color: var(--ok); font-size: 22px; line-height: 1; }
+h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; }
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.level { width: 90px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: inline-block; }
+.level-bar { display: block; height: 100%; background: var(--accent); transition: width 60ms linear; }
+
+button.primary {
+  border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 600; cursor: pointer;
+  background: var(--ok); color: #05130c;
+}
+button.primary.stop { background: var(--sharp); color: #1a0606; }
+button.primary:hover { filter: brightness(1.08); }
+
+.error { background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.4); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+
+main { display: flex; flex-direction: column; gap: 18px; flex: 1; }
+
+/* Readout */
+.readout {
+  display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 16px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px;
+}
+.note-block .label { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.note-block .big { font-size: 64px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.note-block .sub { color: var(--dim); font-size: 14px; min-height: 18px; }
+.note-block.right { text-align: right; }
+.center { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+.feedback { text-align: center; min-height: 84px; }
+.feedback .headline { font-size: 44px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1; transition: color 120ms; }
+.feedback .detail { color: var(--dim); font-size: 15px; margin-top: 4px; }
+.feedback.in-tune .headline { color: var(--ok); }
+.feedback.flat .headline { color: var(--flat); }
+.feedback.sharp .headline { color: var(--sharp); }
+.feedback.silence .headline, .feedback.waiting .headline { color: var(--dim); font-weight: 600; font-size: 32px; }
+
+/* Gauge */
+.gauge { width: 260px; height: 156px; }
+.gauge-arc { fill: none; stroke: var(--line); stroke-width: 10; }
+.gauge-tolerance { fill: none; stroke: rgba(124, 242, 176, 0.5); stroke-width: 10; }
+.gauge-tick { stroke: rgba(255,255,255,0.35); stroke-width: 1.5; }
+.gauge-needle { stroke: var(--text); stroke-width: 3; stroke-linecap: round; transition: all 70ms linear; }
+.gauge.inactive .gauge-needle { stroke: var(--dim); opacity: 0.4; }
+.gauge.in-tune .gauge-needle { stroke: var(--ok); }
+.gauge.flat .gauge-needle { stroke: var(--flat); }
+.gauge.sharp .gauge-needle { stroke: var(--sharp); }
+.gauge-hub { fill: var(--text); }
+.gauge-text { fill: var(--dim); font-size: 10px; font-family: var(--mono); }
+
+/* Meter */
+.meter { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 44px 28px 34px; }
+.meter-track { position: relative; height: 14px; border-radius: 7px; background: var(--panel-2); }
+.meter-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 7px; background: rgba(122,162,255,0.5); transition: width 60ms linear; }
+.meter-fill.in-tune { background: rgba(124,242,176,0.6); }
+.meter-fill.flat { background: rgba(255,209,102,0.55); }
+.meter-fill.sharp { background: rgba(255,107,107,0.6); }
+.meter-target, .meter-origin { position: absolute; top: 0; height: 100%; width: 0; }
+.meter-zone { position: absolute; top: -3px; height: calc(100% + 6px); transform: translateX(-50%); background: rgba(124,242,176,0.18); border-radius: 6px; }
+.meter-target.active .meter-zone { background: rgba(124,242,176,0.38); box-shadow: 0 0 0 1px rgba(124,242,176,0.5); }
+.meter-tick { position: absolute; left: -1px; top: -8px; width: 2px; height: calc(100% + 16px); background: rgba(255,255,255,0.55); }
+.meter-tick.origin { background: var(--dim); }
+.meter-label { position: absolute; top: -40px; left: 0; transform: translateX(-50%); text-align: center; white-space: nowrap; font-size: 12px; color: var(--dim); }
+.meter-label strong { display: block; color: var(--text); font-size: 13px; }
+.meter-target.active .meter-label strong { color: var(--ok); }
+.meter-peak { position: absolute; top: -4px; width: 2px; height: calc(100% + 8px); background: rgba(255,255,255,0.35); transform: translateX(-50%); }
+.meter-indicator {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 22px; height: 22px; border-radius: 50%; background: var(--text); border: 3px solid var(--bg);
+  transition: left 60ms linear, background 120ms;
+}
+.meter-indicator.in-tune { background: var(--ok); }
+.meter-indicator.flat { background: var(--flat); }
+.meter-indicator.sharp { background: var(--sharp); }
+.meter-indicator.hidden { opacity: 0; }
+.meter-indicator span { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 12px; color: var(--text); white-space: nowrap; }
+
+/* History */
+.history { width: 100%; height: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; display: block; }
+
+/* Controls */
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; }
+.control { display: flex; flex-direction: column; gap: 6px; }
+.control label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); display: flex; justify-content: space-between; }
+.control label em { font-style: normal; text-transform: none; letter-spacing: 0; opacity: 0.8; }
+.control select, .control input[type=range] { width: 100%; }
+.control select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.control input[type=range] { accent-color: var(--ok); }
+.segmented { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.segmented button { flex: 1; border: 0; background: var(--panel-2); padding: 8px 6px; cursor: pointer; font-size: 13px; }
+.segmented button + button { border-left: 1px solid var(--line); }
+.segmented button.on { background: var(--ok); color: #05130c; font-weight: 700; }
+
+footer { display: flex; justify-content: space-between; color: var(--dim); font-size: 12px; margin-top: 18px; flex-wrap: wrap; gap: 8px; }
+kbd { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
+@media (max-width: 760px) {
+  .readout { grid-template-columns: 1fr 1fr; }
+  .center { grid-column: 1 / -1; order: -1; }
+  .note-block .big { font-size: 44px; }
+  .feedback .headline { font-size: 34px; }
+  .meter-label { font-size: 10px; }
+}
