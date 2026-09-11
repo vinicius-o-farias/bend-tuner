@@ -37,10 +37,25 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .logo { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #111318; color: var(--ok); font-size: 22px; line-height: 1; }
 h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; }
 .header-actions { display: flex; align-items: center; gap: 14px; }
-.level { position: relative; width: 110px; height: 8px; border-radius: 4px; background: var(--line); display: inline-block; }
-.level-bar { display: block; height: 100%; border-radius: 4px; background: var(--dim); transition: width 60ms linear, background 120ms; }
+.level {
+  position: relative; width: 160px; height: 8px; border-radius: 4px; background: var(--line); display: inline-block;
+  cursor: ew-resize; touch-action: none; user-select: none; outline: none;
+}
+.level:focus-visible { box-shadow: 0 0 0 2px rgba(122,162,255,0.6); }
+.level-bar { display: block; height: 100%; border-radius: 4px; background: var(--dim); transition: width 60ms linear, background 120ms; pointer-events: none; }
 .level-bar.above { background: var(--accent); }
-.level-gate { position: absolute; top: -3px; width: 2px; height: calc(100% + 6px); background: var(--text); transform: translateX(-50%); border-radius: 1px; }
+.level-gate { position: absolute; top: -5px; width: 2px; height: calc(100% + 10px); background: var(--text); transform: translateX(-50%); border-radius: 1px; pointer-events: none; }
+.level-gate-handle {
+  position: absolute; left: 50%; top: 50%; width: 14px; height: 22px; transform: translate(-50%, -50%);
+  border-radius: 4px; background: var(--text); opacity: 0.18; transition: opacity 120ms;
+}
+.level:hover .level-gate-handle, .level.dragging .level-gate-handle, .level:focus-visible .level-gate-handle { opacity: 0.4; }
+.level-gate-value {
+  position: absolute; left: 50%; top: -18px; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10px; color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; opacity: 0; transition: opacity 120ms; white-space: nowrap;
+}
+.level:hover .level-gate-value, .level.dragging .level-gate-value, .level:focus-visible .level-gate-value { opacity: 1; }
 
 button.primary {
   border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 600; cursor: pointer;

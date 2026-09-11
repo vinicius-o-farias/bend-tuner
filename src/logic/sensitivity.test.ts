@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sensitivityToThresholds } from './sensitivity';
+import { levelPctToRms, rmsThresholdToSensitivity, rmsToLevelPct, sensitivityToThresholds } from './sensitivity';
 
 describe('sensitivityToThresholds', () => {
   it('50 mantém os valores por omissão', () => {
@@ -22,5 +22,17 @@ describe('sensitivityToThresholds', () => {
   it('limita valores fora de 0–100', () => {
     expect(sensitivityToThresholds(-20)).toEqual(sensitivityToThresholds(0));
     expect(sensitivityToThresholds(500)).toEqual(sensitivityToThresholds(100));
+  });
+
+  it('rmsThresholdToSensitivity inverte sensitivityToThresholds', () => {
+    for (const s of [0, 13, 50, 77, 100]) {
+      expect(rmsThresholdToSensitivity(sensitivityToThresholds(s).rmsThreshold)).toBe(s);
+    }
+  });
+
+  it('level pct ↔ rms são inversas', () => {
+    for (const pct of [0, 25, 53, 100]) {
+      expect(rmsToLevelPct(levelPctToRms(pct))).toBeCloseTo(pct, 6);
+    }
   });
 });

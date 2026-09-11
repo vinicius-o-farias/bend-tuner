@@ -6,15 +6,10 @@ import { HistoryGraph } from './components/HistoryGraph';
 import { Controls } from './components/Controls';
 import { Feedback } from './components/Feedback';
 import { DEFAULT_SENSITIVITY } from './logic/sensitivity';
+import { LevelMeter } from './components/LevelMeter';
 
 const SETTINGS_KEY = 'bend-tuner.settings.v1';
 
-/** Escala logarítmica do nível (−60 dBFS → 0 %, 0 dBFS → 100 %). */
-function levelPct(rms: number): number {
-  if (rms <= 0) return 0;
-  const db = 20 * Math.log10(rms);
-  return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
-}
 
 const DEFAULT_SETTINGS: EngineSettings = {
   toleranceCents: 10,
@@ -79,15 +74,12 @@ export default function App() {
           <h1>Bend Tuner</h1>
         </div>
         <div className="header-actions">
-          {status === 'running' && (
-            <span className="level" title={`Nível de sinal (a marca é o limiar de sensibilidade)`}>
-              <span
-                className={`level-bar${state.rms >= rmsThreshold ? ' above' : ''}`}
-                style={{ width: `${levelPct(state.rms)}%` }}
-              />
-              <span className="level-gate" style={{ left: `${levelPct(rmsThreshold)}%` }} />
-            </span>
-          )}
+          <LevelMeter
+            rms={state.rms}
+            rmsThreshold={rmsThreshold}
+            sensitivity={settings.sensitivity}
+            onSensitivityChange={(s) => patch({ sensitivity: s })}
+          />
           <button className={`primary ${running ? 'stop' : ''}`} onClick={() => (running ? stop() : void start())}>
             {status === 'starting' ? 'A ligar…' : running ? 'Parar' : 'Iniciar'}
           </button>
