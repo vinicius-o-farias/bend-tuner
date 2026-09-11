@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPitchDetector } from './pitchDetector';
+import { sensitivityToThresholds } from '../logic/sensitivity';
 import { createBendTracker, type BendState, type TargetMode } from '../logic/bendTracker';
 
 export type EngineStatus = 'idle' | 'starting' | 'running' | 'error';
@@ -36,6 +37,8 @@ export interface EngineSettings {
   a4: number;
   lockedRootMidi: number | null;
   deviceId: string | null;
+  /** 0–100: quão fraco/impreciso pode ser o sinal para ser aceite. */
+  sensitivity: number;
 }
 
 export function useAudioEngine(settings: EngineSettings) {
@@ -49,6 +52,8 @@ export function useAudioEngine(settings: EngineSettings) {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
   const trackerRef = useRef(createBendTracker());
+  const detectorRef = useRef<ReturnType<typeof createPitchDetector> | null>(null);
+  const [rmsThreshold, setRmsThreshold] = useState(() => sensitivityToThresholds(settings.sensitivity).rmsThreshold);
 
   // Propagar definições para o tracker sem reiniciar o áudio
   useEffect(() => {
@@ -63,6 +68,11 @@ export function useAudioEngine(settings: EngineSettings) {
   useEffect(() => {
     trackerRef.current.setRoot(settings.lockedRootMidi);
   }, [settings.lockedRootMidi]);
+  useEffect(() => {
+    const t = sensitivityToThresholds(settings.sensitivity);
+    detectorRef.current?.setThresholds(t);
+    setRmsThreshold(t.rmsThreshold);
+  }, [settings.sensitivity]);
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -80,6 +90,7 @@ export function useAudioEngine(settings: EngineSettings) {
     streamRef.current = null;
     void ctxRef.current?.close();
     ctxRef.current = null;
+    detectorRef.current = null;
     trackerRef.current.reset();
     historyRef.current = [];
     setState(INITIAL_STATE);
@@ -116,9 +127,9 @@ export function useAudioEngine(settings: EngineSettings) {
         sampleRate: ctx.sampleRate,
         minFreq: 70,
         maxFreq: 1400,
-        rmsThreshold: 0.006,
-        clarityThreshold: 0.86,
+        ...sensitivityToThresholds(settings.sensitivity),
       });
+      detectorRef.current = detector;
       const buffer = new Float32Array(analyser.fftSize);
       const tracker = trackerRef.current;
 
@@ -151,7 +162,7 @@ export function useAudioEngine(settings: EngineSettings) {
       setStatus('error');
       stop();
     }
-  }, [settings.deviceId, refreshDevices, stop]);
+  }, [settings.deviceId, settings.sensitivity, refreshDevices, stop]);
 
   // Pedir lista de dispositivos ao montar (nomes só aparecem depois da permissão)
   useEffect(() => {
@@ -164,5 +175,5 @@ export function useAudioEngine(settings: EngineSettings) {
   // Parar tudo ao desmontar
   useEffect(() => () => stop(), [stop]);
 
-  return { status, error, devices, state, history: historyRef, start, stop };
+  return { status, error, devices, state, history: historyRef, start, stop, rmsThreshold };
 }

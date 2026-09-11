@@ -37,8 +37,10 @@ header { display: flex; align-items: center; justify-content: space-between; pad
 .logo { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #111318; color: var(--ok); font-size: 22px; line-height: 1; }
 h1 { font-size: 18px; margin: 0; letter-spacing: 0.2px; }
 .header-actions { display: flex; align-items: center; gap: 14px; }
-.level { width: 90px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: inline-block; }
-.level-bar { display: block; height: 100%; background: var(--accent); transition: width 60ms linear; }
+.level { position: relative; width: 110px; height: 8px; border-radius: 4px; background: var(--line); display: inline-block; }
+.level-bar { display: block; height: 100%; border-radius: 4px; background: var(--dim); transition: width 60ms linear, background 120ms; }
+.level-bar.above { background: var(--accent); }
+.level-gate { position: absolute; top: -3px; width: 2px; height: calc(100% + 6px); background: var(--text); transform: translateX(-50%); border-radius: 1px; }
 
 button.primary {
   border: 0; border-radius: 10px; padding: 10px 18px; font-weight: 600; cursor: pointer;
@@ -119,6 +121,7 @@ main { display: flex; flex-direction: column; gap: 18px; flex: 1; }
 .control label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); display: flex; justify-content: space-between; }
 .control label em { font-style: normal; text-transform: none; letter-spacing: 0; opacity: 0.8; }
 .control select, .control input[type=range] { width: 100%; }
+.control .hint { font-size: 11px; color: var(--dim); }
 .control select { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .control input[type=range] { accent-color: var(--ok); }
 .segmented { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }

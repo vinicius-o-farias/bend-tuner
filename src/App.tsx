@@ -5,8 +5,16 @@ import { DeviationGauge } from './components/DeviationGauge';
 import { HistoryGraph } from './components/HistoryGraph';
 import { Controls } from './components/Controls';
 import { Feedback } from './components/Feedback';
+import { DEFAULT_SENSITIVITY } from './logic/sensitivity';
 
 const SETTINGS_KEY = 'bend-tuner.settings.v1';
+
+/** Escala logarítmica do nível (−60 dBFS → 0 %, 0 dBFS → 100 %). */
+function levelPct(rms: number): number {
+  if (rms <= 0) return 0;
+  const db = 20 * Math.log10(rms);
+  return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+}
 
 const DEFAULT_SETTINGS: EngineSettings = {
   toleranceCents: 10,
@@ -14,6 +22,7 @@ const DEFAULT_SETTINGS: EngineSettings = {
   a4: 440,
   lockedRootMidi: null,
   deviceId: null,
+  sensitivity: DEFAULT_SENSITIVITY,
 };
 
 function loadSettings(): EngineSettings {
@@ -28,7 +37,7 @@ function loadSettings(): EngineSettings {
 
 export default function App() {
   const [settings, setSettings] = useState<EngineSettings>(loadSettings);
-  const { status, error, devices, state, history, start, stop } = useAudioEngine(settings);
+  const { status, error, devices, state, history, start, stop, rmsThreshold } = useAudioEngine(settings);
   const running = status === 'running';
 
   useEffect(() => {
@@ -71,8 +80,12 @@ export default function App() {
         </div>
         <div className="header-actions">
           {status === 'running' && (
-            <span className="level" title="Nível de sinal">
-              <span className="level-bar" style={{ width: `${Math.min(100, state.rms * 600)}%` }} />
+            <span className="level" title={`Nível de sinal (a marca é o limiar de sensibilidade)`}>
+              <span
+                className={`level-bar${state.rms >= rmsThreshold ? ' above' : ''}`}
+                style={{ width: `${levelPct(state.rms)}%` }}
+              />
+              <span className="level-gate" style={{ left: `${levelPct(rmsThreshold)}%` }} />
             </span>
           )}
           <button className={`primary ${running ? 'stop' : ''}`} onClick={() => (running ? stop() : void start())}>

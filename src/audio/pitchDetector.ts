@@ -29,8 +29,8 @@ export function createPitchDetector(opts: PitchDetectorOptions) {
   const sampleRate = opts.sampleRate;
   const minFreq = opts.minFreq ?? 60;
   const maxFreq = opts.maxFreq ?? 1500;
-  const rmsThreshold = opts.rmsThreshold ?? 0.008;
-  const clarityThreshold = opts.clarityThreshold ?? 0.85;
+  let rmsThreshold = opts.rmsThreshold ?? 0.008;
+  let clarityThreshold = opts.clarityThreshold ?? 0.85;
 
   const minLag = Math.max(2, Math.floor(sampleRate / maxFreq));
   let nsdf: Float32Array = new Float32Array(0);
@@ -121,5 +121,11 @@ export function createPitchDetector(opts: PitchDetectorOptions) {
     return { frequency, clarity, rms };
   }
 
-  return { detect };
+  /** Ajusta os limiares de sinal/clareza sem recriar o detector. */
+  function setThresholds(t: { rmsThreshold?: number; clarityThreshold?: number }) {
+    if (t.rmsThreshold !== undefined) rmsThreshold = t.rmsThreshold;
+    if (t.clarityThreshold !== undefined) clarityThreshold = t.clarityThreshold;
+  }
+
+  return { detect, setThresholds };
 }

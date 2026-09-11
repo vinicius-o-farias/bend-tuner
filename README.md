@@ -46,5 +46,8 @@ npm test
 ## Dicas
 
 - Se a nota de origem for capturada mal (ex.: apanhou o ataque), usa o selector **Nota de origem** para fixá-la.
+- A **sensibilidade** (0–100) controla o quão fraco e impreciso pode ser o sinal para ser aceite. Se a app não reage
+  à guitarra, sobe; se apanha ruído ou fixa notas a partir de barulho, baixa. A marca branca na barra de nível do
+  cabeçalho mostra o limiar actual: a barra fica azul quando o sinal o ultrapassa.
 - A **tolerância** (± cents) define a zona verde. 10¢ é um bom ponto de partida; aperta para 5¢ quando estiver fácil.
 - Sinal fraco? Sobe o ganho na interface; a barra azul no cabeçalho mostra o nível.

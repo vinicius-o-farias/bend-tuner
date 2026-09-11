@@ -53,6 +53,28 @@ export function Controls({ settings, onChange, devices, running }: Props) {
       </div>
 
       <div className="control">
+        <label>
+          Sensibilidade <span className="mono">{settings.sensitivity}</span>
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={settings.sensitivity}
+          onChange={(e) => onChange({ sensitivity: Number(e.target.value) })}
+          title="Baixa: ignora ruído e sinal fraco. Alta: reage a notas mais fracas."
+        />
+        <div className="hint">
+          {settings.sensitivity < 30
+            ? 'Só notas fortes e bem definidas'
+            : settings.sensitivity > 70
+              ? 'Reage a sinal fraco (pode apanhar ruído)'
+              : 'Equilibrado'}
+        </div>
+      </div>
+
+      <div className="control">
         <label>Nota de origem</label>
         <select
           value={settings.lockedRootMidi ?? 'auto'}
