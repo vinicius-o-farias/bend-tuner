@@ -116,6 +116,6 @@ case "${1:-start}" in
   restart) cmd_stop; cmd_start ;;
   status) cmd_status ;;
   build) cmd_build ;;
-  -h|--help|help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h|--help|help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) echo "Comando desconhecido: $1 (usa: bend --help)" >&2; exit 2 ;;
 esac
